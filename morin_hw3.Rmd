@@ -16,6 +16,7 @@ library("readstata13")
 library("geepack")
 library(dplyr)
 library(kableExtra)
+library(stargazer)
 ```
 
 ```{r, echo = FALSE, results = 'hide', cache = TRUE, include = FALSE}
@@ -112,7 +113,7 @@ person1 = data.frame(postweek = 0,
                      Z = 0,
                      id = 'control')
 
-person1$Probability = exp(predict(M1, newdata = person1, allow.new.levels = TRUE))
+person1$Probability = invlogit(predict(M1, newdata = person1, allow.new.levels = TRUE))
 
 
 ### Prediction for Exercise group
@@ -121,7 +122,7 @@ person2 = data.frame(postweek = 0,
                      Z = 1,
                      id = 'exercise')
 
-person2$Probability = exp(predict(M1, newdata = person2, allow.new.levels = TRUE))
+person2$Probability = invlogit(predict(M1, newdata = person2, allow.new.levels = TRUE))
 
 one.b = rbind(person1, person2)
 
@@ -154,7 +155,7 @@ I calculated the population averaged effect, $\beta^*$, using the following form
 
 $$  \beta^* = \frac{\beta}{(1 + .346(5.944^2))^{1/2}}$$
 
-```{r}
+```{r, echo = FALSE}
 
 divisor = (1+.346*5.944^2)^.5
 
@@ -162,7 +163,87 @@ one.g = data.frame(Sub_Spec = dM1$coef)
 one.g$Pop_Ave = one.g$Sub_Spec/divisor
 one.g = one.g[-1,]
 
-kable(one.g, 'latex', row.names = TRUE, booktabs = TRUE, caption = "Subject Specific vs. Population Average Effects")
+kable(one.g, 'latex', 
+      row.names = TRUE, booktabs = TRUE, 
+      caption = "Subject Specific vs. Population Average Effects") %>%
+  kable_styling(latex_options = c("hold_position"))
+  
 
 ```
+
+# Question 2
+
+## 2a.) Which of the GLM correlation structures in the same as for the multilevel model?
+
+The exchangeable correlation structure corresponds to the random intercept multilevel model.
+
+## 2b.) Construct a table where the row entries are the regression parameters and the scale parameter phi and the columns correspond to each model. Fill the table with the estimate and standard error of each parameter.
+
+```{r, echo = FALSE}
+
+sum.ind = summary(G1.indep)
+ind = sum.ind$coefficients[,1:2]
+ind2 = sum.ind$dispersion
+ind3 = rbind(ind, ind2)
+
+sum.exch = summary(G1.exch)
+exch = sum.exch$coefficients[,1:2]
+exch2 = sum.exch$dispersion
+exch3 = rbind(exch, exch2)
+
+
+sum.unst = summary(G1.unst)
+unst = sum.unst$coefficients[,1:2]
+unst2 = sum.unst$dispersion
+unst3 = rbind(unst, unst2)
+
+two.b = cbind(ind3, exch3, unst3)
+rownames(two.b)[5] = 'phi'
+two.b = round(two.b, 3)
+
+kable(two.b, 'latex', row.names = TRUE, caption = "Comparing Correlation Structures", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  add_header_above(c(" ", "Independant" = 2, "Exchangeable" = 2, "Unstructured" = 2)) %>%
+  group_rows("Coefficients", 1, 4) %>%
+  group_rows("Scale Parameter", 5, 5)
+
+```
+
+## 2c.) What is the interpretation of gamma3 in model G1.unst?
+
+$\gamma_3 = .361$ is the average increase in log odds of quitting for the exercise group compared to the control group, all else equal. $exp(.361) = 1.43$. On average, being in the exercise group is associated with 1.43 times the odds of quitting smoking compared to being in the control group, all else equal. 
+
+## 2d.)  Which of these models gives an estimate of gamma3 that is closest to the *marginalized* estimate of beta3 from the multilevel model?
+
+The independent correlation structure is closest to our marginalized estimate from the multilevel model. 
+
+## 2e.) Construct another table where the row entries correspond to estimates of P(Yij = 1) when (a) tj = 0, F = 0 and Z = 0; and (b) tj = 0, F = 0 and Z = 1. The column entries correspond to each model.
+
+```{r, echo = FALSE}
+
+person1$Independent = invlogit(predict(G1.indep, newdata = person1))
+person1$Exchangeable = invlogit(predict(G1.exch, newdata = person1))
+person1$Unstructured = invlogit(predict(G1.unst, newdata = person1))
+
+person2$Independent = invlogit(predict(G1.indep, newdata = person2))
+person2$Exchangeable = invlogit(predict(G1.exch, newdata = person2))
+person2$Unstructured = invlogit(predict(G1.unst, newdata = person2))
+
+two.e = rbind(person1, person2)
+two.e = two.e %>%
+  select(-Probability)
+
+kable(two.e, 'latex', caption = "Predicted Probability of Quitting for Each Cor Structure", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("hold_position")) 
+
+```
+
+## 2f.) Provide an explanation as to why these estimates are different from each other.
+
+## 2g.) If you were reporting the results of this study for a journal, which model(s) would you report and why, and what would be your conclusion about treatment effect?
+
+
+
+
+
 
