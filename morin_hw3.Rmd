@@ -1,0 +1,168 @@
+---
+title: "PHP 2517 HW#3"
+author: "Blain Morin"
+date: "March 16, 2019"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library ("arm")
+library("foreign")
+library("readstata13")
+library("geepack")
+library(dplyr)
+library(kableExtra)
+```
+
+```{r, echo = FALSE, results = 'hide', cache = TRUE, include = FALSE}
+
+### Hogan code
+
+## This section reads in the ctq data and does some pre-processing
+ctq = read.dta13("ctq_mlm.dta")
+
+ctq$include = rep(1, nrow(ctq))
+for (i in unique(ctq$id)) { 
+  nmiss                   = sum(is.na( ctq$Y[(ctq$id == i)] ) )
+  ctq$include[ctq$id==i]  = rep( ifelse(nmiss<9, 1, 0), 9 )
+}
+
+ctq = ctq[(ctq$include==1),]
+
+ctq = ctq[(ctq$week>4),]
+ctq$postweek = ctq$week - 5
+
+ctq$totfager.cent = ctq$totfager - mean(ctq$totfager)
+ctq$age.cent = ctq$age - mean(ctq$age)
+
+# fit multilevel model
+M1 = glmer( Y ~  Z  + totfager.cent + postweek + (1 | id ) , family=binomial, data=ctq)
+display(M1)
+
+# plot coefficients and associated probabilities
+coefficients = coef(M1)$id
+coefficients
+
+alpha.hat    = coefficients[,1]
+hist(alpha.hat, nclass=12)
+
+p.hat        = exp(alpha.hat) / (1 + exp(alpha.hat))
+hist(p.hat, nclass=12)
+
+
+
+# Fit morginal models with GEE using different corr structures
+
+G1.indep = geeglm(Y ~ Z + postweek + totfager.cent, family=binomial("logit"), data=ctq, 
+                  id=id, corstr="independence", waves=week)
+summary(G1.indep)
+
+
+
+G1.exch = geeglm(Y ~ Z + postweek + totfager.cent, family=binomial("logit"), data=ctq, 
+                  id=id, corstr="exchangeable", waves=week)
+summary(G1.exch)
+
+
+G1.unst = geeglm(Y ~ Z + postweek + totfager.cent, family=binomial("logit"), data=ctq, 
+                 id=id, corstr="unstructured", waves=week)
+summary(G1.unst)
+
+
+```
+
+# Question 1
+
+## 1a.) Using the output from Model M1, construct a table with estimates and standard errors for each of the parameters in the model. For the τ parameter, you do not have to write the standard error.
+
+```{r, include = FALSE}
+
+dM1 = display(M1)
+sM1 = summary(M1)
+
+fix.1 = data.frame(Estimate = dM1$coef, SE = dM1$se)
+ran.1 = data.frame(Tau = sqrt(sM1$varcor$id), SE = NA)
+colnames(ran.1) = c('Estimate', 'SE')
+table1 = rbind(fix.1, ran.1)
+table1 = round(table1, 3)
+row.names(table1)[5] = 'Tau'
+
+```
+
+```{r, echo = FALSE}
+
+kable(table1, 'latex', caption = "M1 Sumary", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  group_rows("Fixed Effects", 1, 4) %>%
+  group_rows("Random Effect", 5, 5)
+
+```
+
+## 1b.) Using the model output, provide an estimate of smoking cessation at week 5 for an individual having αi = 0, F = 0, and Z = 0. Do the same for an individual having αi = 0, F = 0, and Z = 1.
+
+```{r, echo = FALSE}
+
+### Prediction for control 
+person1 = data.frame(postweek = 0,
+                     totfager.cent = 0,
+                     Z = 0,
+                     id = 'control')
+
+person1$Probability = exp(predict(M1, newdata = person1, allow.new.levels = TRUE))
+
+
+### Prediction for Exercise group
+person2 = data.frame(postweek = 0,
+                     totfager.cent = 0,
+                     Z = 1,
+                     id = 'exercise')
+
+person2$Probability = exp(predict(M1, newdata = person2, allow.new.levels = TRUE))
+
+one.b = rbind(person1, person2)
+
+kable(one.b, 'latex', caption = "Probability of Cessation for Exercise vs. Control") %>%
+  kable_styling(latex_options = c("hold_position"))
+
+```
+
+## 1c.) The R program contains code to construct two histograms, one of the alphai hat and another of a variable pi hat. What quantities are being depicted in each of these histograms? Please be specific with your answer, referring to relevant populations defined by the covariates as appropriate.
+
+$\widehat{\alpha_i}$ are the predicted log odds for each individual if they were to have an average Fagerstrom score and be in the control group at week 5. It can be interpretted as an individual's baseline relative propensity to quit.
+
+$\widehat{p_i}$ are the predicted probabilities of quitting smoking for each individual if they were to have an average Fagerstrom score and be in the control group at week 5. It can be interpretted as an individual's underlying baseline probability of quitting.
+
+## 1d.) Histograms like the ones in the previous question can sometimes be helpful in assessing whether the normality assumption makes sense for the random intercept. Based on these histograms, give your assessment of the validity of the normality assumption, and provide a brief justification.
+
+The histogram for $\widehat{\alpha_i}$ does not exhibit the normal distribution bell shape. This is evidence that our normality assumption is violated. We further see from the predicted probability of smoking cessation histogram that many of the predictions are near 0. The probabilities are heavily right skewed, which is further evidence that our normaility assumption does not hold. 
+
+## 1e.) Provide an interpretation of beta3, the coefficient of Z from this model.
+
+$\beta_3 = 1.883$ is the average increase in log odds of quitting for people in the exercise group compared to the control group, all else equal. $exp(1.883) = 6.57$. On average, the odds of quitting smoking for an individual in the exercise group are 6.57 times higher than in the control group, all else equal. 
+
+## 1f.) Provide an interpretation of the coefficient beta0. 
+
+$\beta_0 = -4.628$ is the average log odds of quitting for people in the control group at week 5 with an average Fagerstrom score.  $logit^{-1}(-4.628) = .01$. The average probability of quitting for an individual in the control group at week 5 with an average Fagerstrom score is .01.
+
+## 1g.) Using the approximation discussed in class, convert the coefficients of Z, F, and t to their "population-averaged" counterparts.
+
+I calculated the population averaged effect, $\beta^*$, using the following formula:
+
+$$  \beta^* = \frac{\beta}{(1 + .346(5.944^2))^{1/2}}$$
+
+```{r}
+
+divisor = (1+.346*5.944^2)^.5
+
+one.g = data.frame(Sub_Spec = dM1$coef)
+one.g$Pop_Ave = one.g$Sub_Spec/divisor
+one.g = one.g[-1,]
+
+kable(one.g, 'latex', row.names = TRUE, booktabs = TRUE, caption = "Subject Specific vs. Population Average Effects")
+
+```
+
