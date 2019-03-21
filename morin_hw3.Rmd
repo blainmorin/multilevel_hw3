@@ -1,7 +1,7 @@
 ---
 title: "PHP 2517 HW#3"
 author: "Blain Morin"
-date: "March 16, 2019"
+date: "March 20, 2019"
 output: 
   pdf_document:
     latex_engine: xelatex
@@ -103,7 +103,7 @@ kable(table1, 'latex', caption = "M1 Sumary", booktabs = TRUE) %>%
 
 ```
 
-## 1b.) Using the model output, provide an estimate of smoking cessation at week 5 for an individual having αi = 0, F = 0, and Z = 0. Do the same for an individual having αi = 0, F = 0, and Z = 1.
+## 1b.) Using the model output, provide an estimate of smoking cessation at week 5 for an individual having alpha i = 0, F = 0, and Z = 0. Do the same for an individual having alpha i = 0, F = 0, and Z = 1.
 
 ```{r, echo = FALSE}
 
@@ -126,28 +126,30 @@ person2$Probability = invlogit(predict(M1, newdata = person2, allow.new.levels =
 
 one.b = rbind(person1, person2)
 
-kable(one.b, 'latex', caption = "Probability of Cessation for Exercise vs. Control") %>%
+
+kable(one.b, digits = 4, 'latex',
+      caption = "Probability of Cessation for Exercise vs. Control", booktabs = TRUE) %>%
   kable_styling(latex_options = c("hold_position"))
 
 ```
 
-## 1c.) The R program contains code to construct two histograms, one of the alphai hat and another of a variable pi hat. What quantities are being depicted in each of these histograms? Please be specific with your answer, referring to relevant populations defined by the covariates as appropriate.
+## 1c.) The R program contains code to construct two histograms, one of the alpha i hat and another of a variable p i hat. What quantities are being depicted in each of these histograms? Please be specific with your answer, referring to relevant populations defined by the covariates as appropriate.
 
-$\widehat{\alpha_i}$ are the predicted log odds for each individual if they were to have an average Fagerstrom score and be in the control group at week 5. It can be interpretted as an individual's baseline relative propensity to quit.
+$\widehat{\alpha_i}$ are the predicted log odds for each individual if they were to have an average Fagerstrom score and be in the control group at week 5. It can be interpreted as an individual's baseline relative propensity to quit.
 
-$\widehat{p_i}$ are the predicted probabilities of quitting smoking for each individual if they were to have an average Fagerstrom score and be in the control group at week 5. It can be interpretted as an individual's underlying baseline probability of quitting.
+$\widehat{p_i}$ are the predicted probabilities of quitting smoking for each individual if they were to have an average Fagerstrom score and be in the control group at week 5. It can be interpreted as an individual's underlying baseline probability of quitting.
 
 ## 1d.) Histograms like the ones in the previous question can sometimes be helpful in assessing whether the normality assumption makes sense for the random intercept. Based on these histograms, give your assessment of the validity of the normality assumption, and provide a brief justification.
 
-The histogram for $\widehat{\alpha_i}$ does not exhibit the normal distribution bell shape. This is evidence that our normality assumption is violated. We further see from the predicted probability of smoking cessation histogram that many of the predictions are near 0. The probabilities are heavily right skewed, which is further evidence that our normaility assumption does not hold. 
+The histogram for $\widehat{\alpha_i}$ does not exhibit the normal distribution bell shape. This is evidence that our normality assumption is violated. We further see from the predicted probability of smoking cessation histogram that many of the predictions are near 0. The probabilities are heavily right skewed, which is further evidence that our normality assumption does not hold. 
 
-## 1e.) Provide an interpretation of beta3, the coefficient of Z from this model.
+## 1e.) Provide an interpretation of beta 3, the coefficient of Z from this model.
 
-$\beta_3 = 1.883$ is the average increase in log odds of quitting for people in the exercise group compared to the control group, all else equal. $exp(1.883) = 6.57$. On average, the odds of quitting smoking for an individual in the exercise group are 6.57 times higher than in the control group, all else equal. 
+$\beta_3 = 1.883$ is the average increase in log odds of quitting for an individual in the exercise group compared to the control group, all else equal. $exp(1.883) = 6.57$. On average, the odds of quitting smoking for an individual in the exercise group are 6.57 times higher than in the control group, all else equal. 
 
 ## 1f.) Provide an interpretation of the coefficient beta0. 
 
-$\beta_0 = -4.628$ is the average log odds of quitting for people in the control group at week 5 with an average Fagerstrom score.  $logit^{-1}(-4.628) = .01$. The average probability of quitting for an individual in the control group at week 5 with an average Fagerstrom score is .01.
+$\beta_0 = -4.628$ is the average log odds of quitting for an individual in the control group at week 5 with an average Fagerstrom score.  $logit^{-1}(-4.628) = .01$. The average probability of quitting for an individual in the control group at week 5 with an average Fagerstrom score is .01.
 
 ## 1g.) Using the approximation discussed in class, convert the coefficients of Z, F, and t to their "population-averaged" counterparts.
 
@@ -165,6 +167,7 @@ one.g = one.g[-1,]
 
 kable(one.g, 'latex', 
       row.names = TRUE, booktabs = TRUE, 
+      digits = 4,
       caption = "Subject Specific vs. Population Average Effects") %>%
   kable_styling(latex_options = c("hold_position"))
   
@@ -233,14 +236,27 @@ two.e = rbind(person1, person2)
 two.e = two.e %>%
   select(-Probability)
 
-kable(two.e, 'latex', caption = "Predicted Probability of Quitting for Each Cor Structure", booktabs = TRUE) %>%
+kable(two.e, 'latex',
+      caption = "Predicted Probability of Quitting for Each Cor Structure",
+      digits = 4,
+      booktabs = TRUE) %>%
   kable_styling(latex_options = c("hold_position")) 
 
 ```
 
 ## 2f.) Provide an explanation as to why these estimates are different from each other.
 
+The estimates are different between the models because the correlation structures are different. In effect, each model is making slightly different comparisons. For the model with an independent correlation structure, each observation is assumed to be independent. Therefore, the model compares the exercise group to the control group, but ignores any time trend or within person correlation. The exchangeable model allows for the within person correlation, but does not fully capture the possible time trend (In other words, the probability of smoking cessation is independent of the previous cessation measurement). The unstructured correlation captures both the within person correlation and time trend. 
+
+The estimates between the models are different due to the way they "borrow strength." The independent model does not borrow any strength (people with few observation are given the same amount of weight). The exchangeable model borrows some strength because it estimates the correlation between measurements using all available cessation data. The unstructured model borrows the most strength because it estimates using all cessation data as well as time dependent correlation. 
+
+This "borrowing of strength" is seen in Table 5. The difference in the estimated probability is highest in the independent correlation structure model, less in the exchangeable model, and lease in the unstructured model. The more the model "borrows strength," the more its estimates will attenuate toward the mean. 
+
 ## 2g.) If you were reporting the results of this study for a journal, which model(s) would you report and why, and what would be your conclusion about treatment effect?
+
+I would report the exchangeable and unstructured correlation structure models. It makes intuitive sense that the model should account for within person correlation (therefore the independent model is inappropriate). Choosing between the exchangeable and unstructured models is more difficult. While it is feasable that quitting smoking one week increases your chances of continuing not to smoke the next week, this may be a strong assumption that needs further analysis. However, we see from Table 4 that the treatment effect is most precise (lowest standard error) in the unstructured model. 
+
+Although the treatment effect was not statistically significant at the .05 level in the unstructured correlation structure model, there is some weak evidence that exerecise helps people quit smoking when using the exchangeable model. Since exercise is healthy and may help people quit smoking, I would recommend that further research be conducted. 
 
 
 
